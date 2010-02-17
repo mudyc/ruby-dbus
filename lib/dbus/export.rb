@@ -11,6 +11,23 @@
 require 'thread'
 
 module DBus
+
+  # Exception, or error, that may be raised as an answer to a 
+  # method call.
+  class DBusError < StandardError
+    @@error_name = 'org.freedesktop.DBus.Error.Fail'
+    @description = ''
+    def initialize(description=nil)
+      @description = description if description != nil
+    end
+    def error_name
+      @@error_name
+    end
+    def description
+      @description
+    end
+  end
+
   # Exception raised when an interface cannot be found in an object.
   class InterfaceNotInObject < Exception
   end
@@ -72,8 +89,12 @@ module DBus
             reply.add_param(rsig[1], rdata)
           end
         rescue => ex
-          puts("DBus call Error: #{ex.to_s}")
-          reply = Message.error(msg, "org.freedesktop.DBus.Error.Failed", "#{ex.class}: #{ex}\n==== Backtrace ====\n#{ex.backtrace.join("\n")}")
+          if ex.is_a? DBusError
+            reply = Message.error(msg, ex.error_name, ex.description)
+          else
+            puts("DBus call Error: #{ex.to_s}")
+            reply = Message.error(msg, "org.freedesktop.DBus.Error.Failed", "#{ex.class}: #{ex}\n==== Backtrace ====\n#{ex.backtrace.join("\n")}")
+          end
         end
         @service.bus.send(reply.marshall)
       end
