@@ -666,11 +666,16 @@ module DBus
   # The system bus is a system-wide bus mostly used for global or
   # system usages.  This is a singleton class.
   class SystemBus < Connection
-    include Singleton
+    # This kind of denies of making multiple connections, e.g. per each test case
+    #include Singleton
 
     # Get the default system bus.
     def initialize
-      super(SystemSocketName)
+      if not ENV["DBUS_SYSTEM_ES_ADDRESS"]
+        super(SystemSocketName)
+      else
+        super(ENV["DBUS_SYSTEM_ES_ADDRESS"])
+      end
       connect
       send_hello
     end
@@ -696,6 +701,7 @@ module DBus
     def initialize
       @buses = Hash.new
       @quitting = false
+      @quitRead, @quitWrite = IO.pipe
     end
 
     # Add a _bus_ to the list of buses to watch for events.
@@ -705,6 +711,7 @@ module DBus
 
     # Quit a running main loop, to be used eg. from a signal handler
     def quit
+      @quitWrite.write "."
       @quitting = true
     end
 
@@ -718,9 +725,10 @@ module DBus
         end
       end
       while not @quitting and not @buses.empty?
-        ready, dum, dum = IO.select(@buses.keys)
+        ready, dum, dum = IO.select(@buses.keys + [ @quitRead ])
         ready.each do |socket|
           b = @buses[socket]
+          next if not b # quit case
           begin
             b.update_buffer
           rescue EOFError
@@ -731,6 +739,10 @@ module DBus
             b.process(m)
           end
         end
+      end
+      # disconnecting from D-Bus is done by closing the socket
+      @buses.each_key do |socket|
+        socket.close
       end
     end
   end # class Main
