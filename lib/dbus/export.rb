@@ -82,22 +82,23 @@ module DBus
           if not meth
             puts "MethodNotInInterface #{msg.interface} #{msg.member.to_sym}"
             reply = Message.error(msg, 'org.freedesktop.DBus.Error.UnknownMethod', "#{msg.interface} #{msg.member.to_sym}")
-          end
-          methname = Object.make_method_name(msg.interface, msg.member)
-          begin
-            retdata = method(methname).call(*msg.params)
-            retdata =  [*retdata]
-
-            reply = Message.new.reply_to(msg)
-            meth.rets.zip(retdata).each do |rsig, rdata|
-              reply.add_param(rsig[1], rdata)
-            end
-          rescue => ex
-            if ex.is_a? DBusError
-              reply = Message.error(msg, ex.error_name, ex.description)
-            else
-              puts("DBus call Error: #{ex.to_s}")
-              reply = Message.error(msg, "org.freedesktop.DBus.Error.Failed", "#{ex.class}: #{ex}\n==== Backtrace ====\n#{ex.backtrace.join("\n")}")
+          else
+            methname = Object.make_method_name(msg.interface, msg.member)
+            begin
+              retdata = method(methname).call(*msg.params)
+              retdata =  [*retdata]
+              
+              reply = Message.new.reply_to(msg)
+              meth.rets.zip(retdata).each do |rsig, rdata|
+                reply.add_param(rsig[1], rdata)
+              end
+            rescue => ex
+              if ex.is_a? DBusError
+                reply = Message.error(msg, ex.error_name, ex.description)
+              else
+                puts("DBus call Error: #{ex.to_s}")
+                reply = Message.error(msg, "org.freedesktop.DBus.Error.Failed", "#{ex.class}: #{ex}\n==== Backtrace ====\n#{ex.backtrace.join("\n")}")
+              end
             end
           end
         end
