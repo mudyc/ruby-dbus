@@ -10,6 +10,8 @@ the creation of a D-Bus service.  It contains the following sections:
 # "Exporting an object":#obj-export
 ## "Using the exported object":#obj-export-use
 # "Emitting a signal":#signal-emit
+# "Returning a variable":#return-variable
+# "Multiple threads":#threads
 
 h2(#service-reg). Registering a service
 
@@ -38,6 +40,8 @@ Now, let's define a class that we want to export:
       dbus_method :hello, "in name:s, in name2:s" do |name, name2|
         puts "hello(#{name}, #{name2})"
       end
+      # Defines a helloSig signal in the interface.
+      dbus_signal :helloSig, "message:s"
     end
   end
 
@@ -119,3 +123,55 @@ Note that the @ThatsALongMethodNameIThink@ method is returning a single
 value to the caller.  Notice that you always have to return an array.  If
 you want to return multiple values, just have an array with multiple
 values.
+
+h2(#return-variable). Returning a variable
+
+To return a variable it needs to be packet in array with signature. 
+First in the array is signature and second is the value.
+
+  class Server < DBus::Object
+    def initialize(path)
+      super(path)
+      @propFoo = 'Example string variable'
+    end
+
+    dbus_interface "org.freedesktop.DBus.Properties" do
+      dbus_method :GetAll, "in iface:s, out ret:a{sv}" do |iface|
+      end
+      dbus_method :Get, "in iface:s, in prop:s, out ret:v" do |iface, prop|
+        return [['s', @propFoo]] if prop == 'Foo'
+        return []
+      end
+      dbus_method :Set, "in iface:s, in prop:s, in val:v" do |iface, prop, val|
+      end
+    end
+
+
+  end
+
+
+h2(#threads). Multiple threads
+
+It's possible to run multiple threads with DBus server. 
+
+  class Server < DBus::Object
+    def initialize(path)
+      super(path)
+    end
+  end
+
+  bus = DBus::SystemBus.instance
+  service = bus.request_service("com.example.Server")
+  server = Server.new("/com/example/server")
+  service.export(server)
+  loop = DBus::Main.new
+  loop << bus
+
+  # It's good idea to turn on aborting on exception 
+  # as it's the realistic way to notice when server just dies.
+  Thread.abort_on_exception = true
+  dbus_thread = Thread.new { loop.run }
+
+And when you need to stop the DBus server. Just call:
+
+  loop.quit
