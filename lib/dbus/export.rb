@@ -22,9 +22,9 @@ module DBus
   #    end
   #
   class DBusError < StandardError
-    @error_name = 'org.freedesktop.DBus.Error.Fail'
     @description = ''
-    def initialize(description=nil)
+    def initialize(error_name='org.freedesktop.DBus.Error.Fail', description=nil)
+      @error_name = error_name
       @description = description if description != nil
     end
     def error_name
