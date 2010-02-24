@@ -12,16 +12,23 @@ require 'thread'
 
 module DBus
 
-  # Exception, or error, that may be raised as an answer to a 
+  # DBus error which may be raised as an answer to a 
   # method call.
+  #
+  #    dbus_interface "com.example.ruby" do
+  #      dbus_method :FireError do
+  #        raise DBusError.new('epic fail')
+  #      end
+  #    end
+  #
   class DBusError < StandardError
-    @@error_name = 'org.freedesktop.DBus.Error.Fail'
+    @error_name = 'org.freedesktop.DBus.Error.Fail'
     @description = ''
     def initialize(description=nil)
       @description = description if description != nil
     end
     def error_name
-      @@error_name
+      @error_name
     end
     def description
       @description
